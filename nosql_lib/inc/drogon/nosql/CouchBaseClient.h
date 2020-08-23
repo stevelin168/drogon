@@ -14,6 +14,7 @@
 
 #pragma once
 #include <drogon/nosql/CouchBaseResult.h>
+#include <drogon/nosql/NosqlException.h>
 #include <functional>
 #include <memory>
 #include <string>
@@ -21,7 +22,8 @@ namespace drogon
 {
 namespace nosql
 {
-using NosqlCallback = std::function<void(const CouchBaseResult &)>;
+using CBCallback = std::function<void(const CouchBaseResult &)>;
+using ExceptionCallback = std::function<void(const NosqlException &)>;
 class CouchBaseClient
 {
   public:
@@ -31,7 +33,9 @@ class CouchBaseClient
         const std::string &password = "",
         const std::string &bucket = "",
         size_t connNum = 1);
-    virtual void get(const std::string &key, NosqlCallback &&callback) = 0;
+    virtual void get(const std::string &key,
+                     CBCallback &&callback,
+                     ExceptionCallback &&errorCallback) = 0;
 };
 using CouchBaseClientPtr = std::shared_ptr<CouchBaseClient>;
 }  // namespace nosql

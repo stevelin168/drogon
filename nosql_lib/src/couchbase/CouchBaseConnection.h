@@ -14,6 +14,7 @@
 #pragma once
 #include <libcouchbase/couchbase.h>
 #include <drogon/nosql/CouchBaseResult.h>
+#include <drogon/nosql/CouchBaseClient.h>
 #include <drogon/utils/string_view.h>
 #include <trantor/net/EventLoop.h>
 #include <memory>
@@ -57,6 +58,9 @@ class CouchBaseConnection
     {
         return loop_;
     }
+    void get(const std::string &key,
+             CBCallback &&callback,
+             ExceptionCallback &&errorCallback);
 
   private:
     using GetCallback = std::function<void(const CouchBaseResult &)>;

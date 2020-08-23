@@ -17,6 +17,7 @@
 #include <memory>
 #include <unordered_set>
 #include <mutex>
+#include <deque>
 
 namespace drogon
 {
@@ -24,6 +25,8 @@ namespace nosql
 {
 class CouchBaseConnection;
 using CouchBaseConnectionPtr = std::shared_ptr<CouchBaseConnection>;
+class CouchBaseCommand;
+using CouchBaseCommandPtr = std::shared_ptr<CouchBaseCommand>;
 class CouchBaseClientImpl
     : public CouchBaseClient,
       public std::enable_shared_from_this<CouchBaseClientImpl>
@@ -34,7 +37,9 @@ class CouchBaseClientImpl
                         const std::string &password,
                         const std::string &bucket,
                         size_t connNum);
-    virtual void get(const std::string &key, NosqlCallback &&callback) override;
+    virtual void get(const std::string &key,
+                     CBCallback &&callback,
+                     ExceptionCallback &&errorCallback) override;
 
   private:
     const std::string connectString_;
@@ -46,8 +51,10 @@ class CouchBaseClientImpl
     std::unordered_set<CouchBaseConnectionPtr> connections_;
     std::unordered_set<CouchBaseConnectionPtr> readyConnections_;
     std::unordered_set<CouchBaseConnectionPtr> busyConnections_;
+    std::deque<CouchBaseCommandPtr> commandsBuffer_;
     trantor::EventLoopThreadPool loops_;
     CouchBaseConnectionPtr newConnection(trantor::EventLoop *loop);
+    CouchBaseConnectionPtr getIdleConnection();
     void handleNewTask(const CouchBaseConnectionPtr &connPtr);
 };
 }  // namespace nosql

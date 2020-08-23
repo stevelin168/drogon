@@ -14,7 +14,9 @@
 
 #include "CouchBaseClientImpl.h"
 #include "CouchBaseConnection.h"
+#include "CouchBaseCommand.h"
 #include <trantor/utils/Logger.h>
+
 using namespace drogon::nosql;
 
 CouchBaseClientImpl::CouchBaseClientImpl(const std::string &connectString,
@@ -107,6 +109,50 @@ void CouchBaseClientImpl::handleNewTask(const CouchBaseConnectionPtr &connPtr)
 {
 }
 
-void CouchBaseClientImpl::get(const std::string &key, NosqlCallback &&callback)
+void CouchBaseClientImpl::get(const std::string &key,
+                              CBCallback &&callback,
+                              ExceptionCallback &&errorCallback)
 {
+    bool busy{false};
+    CouchBaseConnectionPtr conn;
+    {
+        std::lock_guard<std::mutex> guard(connectionsMutex_);
+        if (readyConnections_.size() == 0)
+        {
+            if (commandsBuffer_.size() > 200000)
+            {
+                // too many queries in buffer;
+                busy = true;
+            }
+            else
+            {
+                // LOG_TRACE << "Push query to buffer";
+                // TODO: make command
+                auto cmd = std::make_shared<CouchBaseCommand>();
+                commandsBuffer_.push_back(std::move(cmd));
+            }
+        }
+        else
+        {
+            auto iter = readyConnections_.begin();
+            busyConnections_.insert(*iter);
+            conn = *iter;
+            readyConnections_.erase(iter);
+        }
+    }
+    if (conn)
+    {
+        conn->get(key, std::move(callback), std::move(errorCallback));
+        return;
+    }
+    if (busy)
+    {
+        // TODO exceptCallback
+        return;
+    }
+}
+
+CouchBaseConnectionPtr CouchBaseClientImpl::getIdleConnection()
+{
+    std::lock_guard<std::mutex> guard(connectionsMutex_);
 }
