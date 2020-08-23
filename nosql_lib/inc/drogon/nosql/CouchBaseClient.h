@@ -31,6 +31,8 @@ class CouchBaseClient
         const std::string &password = "",
         const std::string &bucket = "",
         size_t connNum = 1);
+    virtual void get(const std::string &key, NosqlCallback &&callback) = 0;
 };
+using CouchBaseClientPtr = std::shared_ptr<CouchBaseClient>;
 }  // namespace nosql
 }  // namespace drogon

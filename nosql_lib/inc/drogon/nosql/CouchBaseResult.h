@@ -28,6 +28,7 @@ class CouchBaseResult
         : resultPtr_(std::move(resultPtr))
     {
     }
+
   private:
     CouchBaseResultImplPtr resultPtr_;
 };

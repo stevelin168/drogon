@@ -34,5 +34,4 @@ GetLcbResult::GetLcbResult(const lcb_RESPGET* resp)
 
 StoreLcbResult::StoreLcbResult(const lcb_RESPSTORE* resp)
 {
-
 }

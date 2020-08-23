@@ -27,6 +27,9 @@ namespace drogon
 {
 namespace nosql
 {
+class CouchBaseConnection;
+using CouchBaseConnectionPtr = std::shared_ptr<CouchBaseConnection>;
+using ConnectionCallback = std::function<void(const CouchBaseConnectionPtr &)>;
 class CouchBaseConnection
     : public std::enable_shared_from_this<CouchBaseConnection>,
       public trantor::NonCopyable
@@ -38,10 +41,24 @@ class CouchBaseConnection
                         const drogon::string_view &bucket,
                         trantor::EventLoop *loop);
     ~CouchBaseConnection();
+    void setOkCallback(const ConnectionCallback &cb)
+    {
+        okCallback_ = cb;
+    }
+    void setCloseCallback(const ConnectionCallback &cb)
+    {
+        closeCallback_ = cb;
+    }
+    void setIdleCallback(const std::function<void()> &cb)
+    {
+        idleCallback_ = cb;
+    }
+    trantor::EventLoop *loop()
+    {
+        return loop_;
+    }
 
   private:
-    using ConnectionPtr = std::shared_ptr<CouchBaseConnection>;
-    using ConnectionCallback = std::function<void(const ConnectionPtr &)>;
     using GetCallback = std::function<void(const CouchBaseResult &)>;
     trantor::EventLoop *loop_;
     std::unique_ptr<lcb_io_opt_st> ioop_;
@@ -52,13 +69,15 @@ class CouchBaseConnection
     std::unordered_map<int, EventHandler> handlerMap_;
     std::unordered_map<trantor::TimerId, EventHandler> timerMap_;
     lcb_INSTANCE *instance_ = nullptr;
-    ConnectionCallback closeCallback_{[](const ConnectionPtr &) {}};
-    ConnectionCallback okCallback_{[](const ConnectionPtr &) {}};
+    ConnectionCallback closeCallback_{[](const CouchBaseConnectionPtr &) {}};
+    ConnectionCallback okCallback_{[](const CouchBaseConnectionPtr &) {}};
+    std::function<void()> idleCallback_{[]() {}};
     GetCallback getCallback_{[](const CouchBaseResult &) {}};
     drogon::string_view connString_;
     drogon::string_view userName_;
     drogon::string_view password_;
     drogon::string_view bucket_;
+
     void connect();
     static void lcbDestroyIoOpts(struct lcb_io_opt_st *iops);
     static void procs2TrantorCallback(int version,

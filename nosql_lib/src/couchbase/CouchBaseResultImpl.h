@@ -35,6 +35,7 @@ class GetLcbResult : public CouchBaseResultImpl
 {
   public:
     GetLcbResult(const lcb_RESPGET* resp);
+
   private:
     std::string key_;
     std::string value_;
@@ -48,6 +49,7 @@ class StoreLcbResult : public CouchBaseResultImpl
 {
   public:
     StoreLcbResult(const lcb_RESPSTORE* resp);
+
   private:
     std::string key_;
     uint64_t cas_{0};

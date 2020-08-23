@@ -14,6 +14,7 @@
 
 #include "CouchBaseClientImpl.h"
 #include "CouchBaseConnection.h"
+#include <trantor/utils/Logger.h>
 using namespace drogon::nosql;
 
 CouchBaseClientImpl::CouchBaseClientImpl(const std::string &connectString,
@@ -49,6 +50,63 @@ CouchBaseClientImpl::CouchBaseClientImpl(const std::string &connectString,
 CouchBaseConnectionPtr CouchBaseClientImpl::newConnection(
     trantor::EventLoop *loop)
 {
-    return std::make_shared<CouchBaseConnection>(
+    auto connPtr = std::make_shared<CouchBaseConnection>(
         connectString_, userName_, password_, bucket_, loop);
+    std::weak_ptr<CouchBaseClientImpl> weakPtr = shared_from_this();
+    connPtr->setCloseCallback(
+        [weakPtr](const CouchBaseConnectionPtr &closeConnPtr) {
+            // Erase the connection
+            auto thisPtr = weakPtr.lock();
+            if (!thisPtr)
+                return;
+            {
+                std::lock_guard<std::mutex> guard(thisPtr->connectionsMutex_);
+                thisPtr->readyConnections_.erase(closeConnPtr);
+                thisPtr->busyConnections_.erase(closeConnPtr);
+                assert(thisPtr->connections_.find(closeConnPtr) !=
+                       thisPtr->connections_.end());
+                thisPtr->connections_.erase(closeConnPtr);
+            }
+            // Reconnect after 1 second
+            auto loop = closeConnPtr->loop();
+            loop->runAfter(1, [weakPtr, loop] {
+                auto thisPtr = weakPtr.lock();
+                if (!thisPtr)
+                    return;
+                std::lock_guard<std::mutex> guard(thisPtr->connectionsMutex_);
+                thisPtr->connections_.insert(thisPtr->newConnection(loop));
+            });
+        });
+    connPtr->setOkCallback([weakPtr](const CouchBaseConnectionPtr &okConnPtr) {
+        LOG_TRACE << "connected!";
+        auto thisPtr = weakPtr.lock();
+        if (!thisPtr)
+            return;
+        {
+            std::lock_guard<std::mutex> guard(thisPtr->connectionsMutex_);
+            thisPtr->busyConnections_.insert(
+                okConnPtr);  // For new connections, this sentence is necessary
+        }
+        thisPtr->handleNewTask(okConnPtr);
+    });
+    std::weak_ptr<CouchBaseConnection> weakConn = connPtr;
+    connPtr->setIdleCallback([weakPtr, weakConn]() {
+        auto thisPtr = weakPtr.lock();
+        if (!thisPtr)
+            return;
+        auto connPtr = weakConn.lock();
+        if (!connPtr)
+            return;
+        thisPtr->handleNewTask(connPtr);
+    });
+    // std::cout<<"newConn end"<<connPtr<<std::endl;
+    return connPtr;
+}
+
+void CouchBaseClientImpl::handleNewTask(const CouchBaseConnectionPtr &connPtr)
+{
+}
+
+void CouchBaseClientImpl::get(const std::string &key, NosqlCallback &&callback)
+{
 }
